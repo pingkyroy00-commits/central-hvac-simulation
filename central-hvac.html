@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Central Air Conditioning System Simulation</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --text-color: #f8fafc;
+            --accent-blue: #38bdf8;
+            --accent-red: #f43f5e;
+            --accent-green: #4ade80;
+            --border-color: #334155;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            margin-bottom: 5px;
+            font-size: 1.5rem;
+            text-align: center;
+        }
+
+        p.subtitle {
+            color: #94a3b8;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .canvas-container {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        canvas {
+            background-color: #090d16;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 600px;
+            height: auto;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        .controls-panel {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .control-group label {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+
+        .control-group val {
+            font-size: 1.1rem;
+            color: var(--accent-blue);
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        button {
+            background-color: #334155;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #475569;
+        }
+
+        button.active-on {
+            background-color: var(--accent-green);
+            color: #064e3b;
+        }
+
+        button.active-off {
+            background-color: var(--accent-red);
+            color: #4c0519;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .status-running { background-color: rgba(74, 222, 128, 0.2); color: var(--accent-green); }
+        .status-stopped { background-color: rgba(244, 63, 94, 0.2); color: var(--accent-red); }
+
+        .stats-readout {
+            font-family: monospace;
+            font-size: 0.9rem;
+            background: #090d16;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Central HVAC Simulation</h1>
+    <p class="subtitle">Interactive schematic model of a centralized air cooling setup</p>
+
+    <div class="dashboard">
+        <!-- Visual Simulation Canvas -->
+        <div class="canvas-container">
+            <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="font-weight: 600; font-size: 0.9rem;">System Schematic Flow</span>
+                <span id="systemStatusBadge" class="status-badge status-running">Running</span>
+            </div>
+            <canvas id="hvacCanvas" width="600" height="380"></canvas>
+        </div>
+
+        <!-- Interactive Control Panel -->
+        <div class="controls-panel">
+            <div class="control-group">
+                <label>Power Status</label>
+                <div class="btn-grid" style="margin-top: 0;">
+                    <button id="btnPowerOn" class="active-on" onclick="setPower(true)">ON</button>
+                    <button id="btnPowerOff" onclick="setPower(false)">OFF</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="targetTempSlider">Target Room Temperature</label>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <val><span id="targetTempVal">22</span> °C</val>
+                </div>
+                <input type="range" id="targetTempSlider" min="16" max="30" step="1" value="22" oninput="updateTargetTemp(this.value)">
+            </div>
+
+            <div class="control-group">
+                <label for="ambientTempSlider">Outdoor Ambient Temperature</label>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <val><span id="ambientTempVal">35</span> °C</val>
+                </div>
+                <input type="range" id="ambientTempSlider" min="20" max="45" step="1" value="35" oninput="updateAmbientTemp(this.value)">
+            </div>
+
+            <div class="control-group">
+                <label>Live System Telemetry</label>
+                <div class="stats-readout">
+                    <div>Room Temp: <span id="roomTempVal" style="color:var(--accent-blue);">24.5</span> °C</div>
+                    <div>Compressor: <span id="compStatusVal">Active</span></div>
+                    <div>Supply Air: <span id="supplyTempVal">12.0</span> °C</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('hvacCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Simulation Parameters
+        let isPowerOn = true;
+        let targetTemp = 22;
+        let ambientTemp = 35;
+        let roomTemp = 24.5;
+        let supplyTemp = 12.0;
+        let compressorActive = true;
+        
+        // Animation variables
+        let particleOffset = 0;
+
+        function setPower(state) {
+            isPowerOn = state;
+            document.getElementById('btnPowerOn').className = state ? 'active-on' : '';
+            document.getElementById('btnPowerOff').className = !state ? 'active-off' : '';
+            
+            const badge = document.getElementById('systemStatusBadge');
+            if(state) {
+                badge.className = 'status-badge status-running';
+                badge.innerText = 'Running';
+            } else {
+                badge.className = 'status-badge status-stopped';
+                badge.innerText = 'Stopped';
+            }
+        }
+
+        function updateTargetTemp(val) {
+            targetTemp = parseInt(val);
+            document.getElementById('targetTempVal').innerText = targetTemp;
+        }
+
+        function updateAmbientTemp(val) {
+            ambientTemp = parseInt(val);
+            document.getElementById('ambientTempVal').innerText = ambientTemp;
+        }
+
+        // Physics calculation loop
+        function updatePhysics() {
+            if (!isPowerOn) {
+                roomTemp += (ambientTemp - roomTemp) * 0.002;
+                compressorActive = false;
+                supplyTemp = roomTemp;
+            } else {
+                if (roomTemp > targetTemp + 0.3) {
+                    compressorActive = true;
+                    supplyTemp = targetTemp - 4.0; 
+                } else if (roomTemp < targetTemp - 0.3) {
+                    compressorActive = false;
+                    supplyTemp = roomTemp;
+                }
+
+                let heatGainFromOutside = (ambientTemp - roomTemp) * 0.0015;
+                let coolingEffect = compressorActive ? (roomTemp - supplyTemp) * 0.008 : 0;
+                
+                roomTemp = roomTemp + heatGainFromOutside - coolingEffect;
+            }
+
+            document.getElementById('roomTempVal').innerText = roomTemp.toFixed(1);
+            document.getElementById('compStatusVal').innerText = compressorActive ? 'Active (Cooling)' : 'Idle (Standby)';
+            document.getElementById('compStatusVal').style.color = compressorActive ? '#4ade80' : '#94a3b8';
+            document.getElementById('supplyTempVal').innerText = supplyTemp.toFixed(1);
+        }
+
+        // Draw schema
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (isPowerOn && compressorActive) {
+                particleOffset = (particleOffset + 1.5) % 20;
+            }
+
+            // 1. AHU Unit (Air Handling Unit - Indoor)
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(50, 60, 140, 100);
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(50, 60, 140, 100);
+            
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText('AHU / Evaporator', 62, 90);
+            ctx.font = '10px sans-serif';
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillText(`Supply: ${supplyTemp.toFixed(1)}°C`, 62, 120);
+
+            // 2. Chiller / Condenser Unit (Outdoor)
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(410, 60, 140, 100);
+            ctx.strokeRect(410, 60, 140, 100);
+
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText('Outdoor Chiller', 425, 90);
+            ctx.font = '10px sans-serif';
+            ctx.fillStyle = '#f43f5e';
+            ctx.fillText(`Ambient: ${ambientTemp}°C`, 425, 120);
+
+            // 3. Conditioned Room Space
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(150, 220, 300, 120);
+            ctx.strokeStyle = '#334155';
+            ctx.strokeRect(150, 220, 300, 120);
+
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 13px sans-serif';
+            ctx.fillText('Conditioned Zone (Building)', 170, 250);
+            ctx.font = '11px sans-serif';
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText(`Current Room Temp: `, 170, 280);
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = 'bold 14px sans-serif';
+            ctx.fillText(`${roomTemp.toFixed(1)} °C`, 290, 280);
+
+            // 4. Ductwork Lines & Flow Animation
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(120, 160);
+            ctx.lineTo(120, 280);
+            ctx.lineTo(150, 280);
+            ctx.stroke();
+
+            ctx.strokeStyle = '#f43f5e';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(450, 280);
+            ctx.lineTo(480, 280);
+            ctx.lineTo(480, 190);
+            ctx.lineTo(190, 190);
+            ctx.stroke();
+
+            ctx.strokeStyle = '#60a5fa';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(190, 90);
+            ctx.lineTo(410, 90);
+            ctx.moveTo(190, 130);
+            ctx.lineTo(410, 130);
+            ctx.stroke();
+            ctx.setLineDash([]); 
+
+            if (isPowerOn && compressorActive) {
+                ctx.fillStyle = '#38bdf8';
+                for (let i = 0; i < 5; i++) {
+                    let yPos = 170 + ((i * 30 + particleOffset) % 110);
+                    ctx.beginPath();
+                    ctx.arc(120, yPos, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '9px sans-serif';
+            ctx.fillText('Supply Air Duct', 30, 220);
+            ctx.fillText('Refrigerant Loop', 270, 80);
+        }
+
+        function loop() {
+            updatePhysics();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+</html>
